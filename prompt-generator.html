@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>나만의 프롬프트 생성기</title>
+<style>
+/* shadcn/ui 기본 토큰 (slate) */
+:root{
+  --background:#ffffff; --foreground:#020817; --card:#ffffff; --card-foreground:#020817;
+  --muted:#f1f5f9; --muted-foreground:#64748b; --border:#e2e8f0; --input:#e2e8f0;
+  --primary:#0f172a; --primary-foreground:#f8fafc; --secondary:#f1f5f9; --secondary-foreground:#0f172a;
+  --accent:#f1f5f9; --ring:#94a3b8; --ok:#15803d; --ok-bg:#dcfce7; --radius:8px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--background:#020817; --foreground:#f8fafc; --card:#0b1220; --card-foreground:#f8fafc;
+    --muted:#1e293b; --muted-foreground:#94a3b8; --border:#1e293b; --input:#1e293b;
+    --primary:#f8fafc; --primary-foreground:#0f172a; --secondary:#1e293b; --secondary-foreground:#f8fafc;
+    --accent:#1e293b; --ring:#cbd5e1; --ok:#4ade80; --ok-bg:#052e16;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);font:16px/1.5 Pretendard,"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;-webkit-font-smoothing:antialiased;word-break:keep-all}
+.container{max-width:80rem;margin:0 auto;padding:16px}
+@media (min-width:640px){.container{padding:24px}}
+@media (min-width:768px){.container{padding:32px}}
+
+/* 버튼 (shadcn Button) */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;border-radius:6px;font:inherit;font-size:14px;font-weight:500;height:40px;padding:0 16px;border:0;cursor:pointer;text-decoration:none;transition:background-color .15s,color .15s,opacity .15s}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)}
+.btn-default{background:var(--primary);color:var(--primary-foreground)}
+.btn-default:hover{opacity:.9}
+.btn-secondary{background:var(--secondary);color:var(--secondary-foreground)}
+.btn-secondary:hover{opacity:.8}
+.btn-outline{border:1px solid var(--input);background:var(--background);color:var(--foreground)}
+.btn-outline:hover,.btn-ghost:hover{background:var(--accent)}
+.btn-ghost{background:transparent;color:var(--foreground)}
+.btn-icon{width:40px;padding:0;flex:none}
+.btn[aria-pressed=true] svg{color:var(--foreground)}
+
+/* 카드 목록 (ProductCard) */
+.page-head{margin-bottom:24px}
+.page-head h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+.page-head p{margin:8px 0 0;color:var(--muted-foreground)}
+.grid{display:grid;gap:24px;grid-template-columns:1fr}
+@media (min-width:640px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:1024px){.grid{grid-template-columns:repeat(3,1fr)}}
+@media (min-width:1280px){.grid{grid-template-columns:repeat(5,1fr)}}
+.card{position:relative;display:block;overflow:hidden;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);color:var(--card-foreground);transition:all .3s ease-in-out}
+.card:hover{box-shadow:0 10px 15px -3px rgb(0 0 0/.1),0 4px 6px -4px rgb(0 0 0/.1)}
+.card:has(a:focus-visible){box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)}
+.card>a{display:block;color:inherit;text-decoration:none;outline:none}
+.thumb{aspect-ratio:1/1;overflow:hidden}
+.art{display:block;width:100%;height:100%;transition:transform .3s ease-in-out}
+.art svg{display:block;width:100%;height:100%}
+.card:hover .art{transform:scale(1.05)}
+.card-body{padding:16px}
+.card-body h3{margin:0;font-size:16px;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-body p{margin:4px 0 0;font-size:14px;color:var(--muted-foreground)}
+.dot{color:var(--ok);font-weight:600}
+.save{position:absolute;top:12px;right:12px;width:32px;height:32px;padding:0;border-radius:999px;opacity:0;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);transition:all .3s}
+.card:hover .save,.save:focus-visible,.save[aria-pressed=true]{opacity:1}
+@media (hover:none){.save{opacity:1}}
+
+/* 세부 페이지 */
+.back{margin:0 0 16px -12px;padding:0 12px}
+.detail-head{display:flex;gap:16px;align-items:flex-start;margin-bottom:24px}
+.detail-thumb{width:80px;height:80px;flex:none;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)}
+.detail-title{flex:1;min-width:0}
+.detail-title h1{margin:2px 0 4px;font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+.muted{margin:0;font-size:14px;color:var(--muted-foreground)}
+.detail-grid{display:grid;gap:24px;grid-template-columns:1fr;align-items:start}
+@media (min-width:1024px){.detail-grid{grid-template-columns:1fr 1fr}.out{position:sticky;top:24px}}
+.panel{border:1px solid var(--border);border-radius:var(--radius);background:var(--card);padding:24px;box-shadow:0 1px 2px rgb(0 0 0/.05)}
+.panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.panel h2{margin:0;font-size:18px;font-weight:600;letter-spacing:-.01em}
+
+/* 입력 (shadcn Input · Textarea · Label) */
+.label{display:block;margin:16px 0 6px;font-size:14px;font-weight:500}
+.label .t{font-weight:400;color:var(--muted-foreground);margin-left:4px}
+.input{display:block;width:100%;height:40px;border-radius:6px;border:1px solid var(--input);background:var(--background);padding:8px 12px;font:inherit;font-size:16px;color:var(--foreground)}
+textarea.input{height:auto;min-height:80px;resize:vertical}
+.input::placeholder{color:var(--muted-foreground)}
+.input:focus{outline:none;box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)}
+.checks{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:4px}
+.checks label{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.checks input{width:16px;height:16px;margin:0;accent-color:var(--primary)}
+
+/* 결과 */
+#badges{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.badge{display:inline-flex;align-items:center;border-radius:999px;border:1px solid var(--border);padding:2px 10px;font-size:12px;font-weight:600;color:var(--muted-foreground)}
+.badge.on{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+pre{white-space:pre-wrap;word-break:break-word;background:var(--muted);border-radius:6px;padding:16px;margin:0;min-height:240px;max-height:60vh;overflow:auto;font:15px/1.7 "D2Coding",ui-monospace,Consolas,"Malgun Gothic",monospace}
+.btns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+#tips{margin:16px 0 0;padding-left:20px;font-size:14px;color:var(--muted-foreground)}
+#tips b{color:var(--foreground);font-weight:600}
+@media (max-width:480px){.detail-thumb{width:56px;height:56px}.detail-title h1{font-size:24px}.panel{padding:16px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const TOOLS = {'①':'세 가지 유형','②':'예시','③':'페르소나','④':'마크다운','⑤':'강도·톤','⑥':'대안·이용자','⑦':'레시피·역질문·검증'};
+const lines = s => (s || '').split('\n').map(t => t.trim()).filter(Boolean);
+
+// 탭마다: 칸(fields) · 체크박스(checks) · 조합 규칙(build) · 예시(example)
+const TABS = {
+  text: {
+    label: '✍️ 글',
+    fields: [
+      {id:'role', label:'역할', tool:'③', ph:'예: 10년차 백엔드 개발자이자 친절한 멘토', tip:'역할·경력·분야를 주면 수준이 맞아요'},
+      {id:'context', label:'맥락', tool:'①', type:'area', ph:'지금 상황을 이야기하듯 써 주세요', tip:'AI는 우리 사정을 몰라요'},
+      {id:'task', label:'할 일', ph:'예: 원인 후보와 고치는 방법을 알려 줘'},
+      {id:'data', label:'자료', type:'area', ph:"코드·로그·글을 붙여 넣으면 ''' 상자로 감싸져요"},
+      {id:'rules', label:'꼭 지킬 것', tool:'⑤', type:'area', ph:'한 줄에 하나씩', tip:'중요한 조건은 따로 강하게'},
+      {id:'tone', label:'말투', tool:'⑤', ph:'예: 친근하지만 정확하게'},
+      {id:'reader', label:'듣는 사람', tool:'⑥', ph:'예: JavaScript 3주 차 초보', tip:'듣는 사람에 맞춰 설명 수준이 바뀌어요'},
+      {id:'format', label:'출력 형식', tool:'④', type:'area', ph:'한 줄에 한 부분씩, 순서대로\n예: 1) 표: | 항목 | 설명 |\n2) 요약 3줄', tip:'답의 모양을 정해 주세요'},
+      {id:'length', label:'분량', tool:'⑤', ph:'예: A4 한 장 이내 / 위 형식 외의 섹션은 넣지 않기', tip:'안 정하면 AI가 알아서 늘려요'},
+      {id:'example', label:'예시', tool:'②', type:'area', ph:'이런 모양으로 답해 줘 (원샷·퓨샷)', tip:'예시 하나면 모양이 그대로 따라와요'},
+    ],
+    checks: [
+      {id:'alt', label:'대안 3안', tool:'⑥', text:'서로 다른 대안 3안을 주고, 장단점과 추천 1개를 알려 줘.'},
+      {id:'rev', label:'역발상', tool:'⑥', text:'뻔한 답 말고 역발상 아이디어도 1개 넣어 줘.'},
+      {id:'step', label:'단계별', tool:'⑦', text:'단계별로 차근차근 생각해서 순서대로 정리해 줘.'},
+      {id:'ask', label:'먼저 질문해 줘', tool:'⑦', text:'바로 답하지 말고, 더 좋은 답에 필요한 질문을 한 번에 하나씩 먼저 해 줘.'},
+      {id:'verify', label:'쪼개서 확인', tool:'⑦', text:'한 번에 다 하지 말고 단계마다 나에게 확인받고 진행해 줘.'},
+    ],
+    build(d, use) {
+      const s = [];
+      if (d.role) s.push('# 역할\n' + d.role);
+      if (d.context) s.push('# 맥락\n' + d.context);
+      if (d.task) s.push('# 할 일\n' + d.task);
+      if (d.data) s.push("# 자료\n'''\n" + d.data + "\n'''");
+      if (d.rules) s.push('# 꼭 지킬 것\n' + lines(d.rules).map(l => '> ' + l).join('\n'));
+      const who = [d.tone && '- 말투: ' + d.tone, d.reader && '- 듣는 사람: ' + d.reader].filter(Boolean);
+      if (who.length) s.push('# 말투와 듣는 사람\n' + who.join('\n'));
+      if (d.format) { s.push('# 출력 형식\n' + lines(d.format).join('\n')); use('①'); }
+      if (d.length) s.push('# 분량\n' + d.length);
+      if (d.example) s.push("# 예시\n'''\n" + d.example + "\n'''");
+      const how = this.checks.filter(c => d[c.id]).map(c => (use(c.tool), '- ' + c.text));
+      if (how.length) s.push('# 진행 방식\n' + how.join('\n'));
+      if (s.length > 1) use('④');
+      return s.join('\n\n');
+    },
+    example: {
+      role:'10년차 시니어 프론트엔드 개발자이자 명탐정처럼 추리하는 멘토',
+      context:'부트캠프 팀 프로젝트에서 결제 버튼을 빠르게 두 번 누르면 결제가 두 번 되는 버그가 생겼어. 마감은 내일이야.',
+      task:'원인 후보(용의자) 3개와 각각 확인할 테스트, 그리고 진범과 고치는 방법을 알려 줘.',
+      data:'버튼 연타 가능 / 서버 응답 2초 / 로그에 같은 주문번호 2개',
+      rules:'수정 코드는 JavaScript로\n원인은 3개 이내\n모르면 모른다고 말하기\n테스트는 결제 테스트 모드에서 하라고 안내하기\n코드는 그대로 붙여넣어 실행되게 (쓰는 변수는 모두 선언)\n답하기 전에 연타·성공 후 재클릭 상황에서도 결제가 한 번만 되는지 스스로 점검하기',
+      tone:'탐정 소설처럼 재미있게, 설명은 정확하게', reader:'JavaScript 3주 차 초보',
+      format:'1) 용의자 표: | 용의자 | 알리바이 확인 방법 | 결과 |\n2) 진범 한 줄\n3) 수정 코드 + 초보용 해설 3줄',
+      length:'위 세 부분만, 그 밖의 섹션은 넣지 않기 (전체 A4 한 장 이내)', example:'', step:true,
+    },
+  },
+
+  image: {
+    label: '🎨 이미지',
+    fields: [
+      {id:'use', label:'용도', tool:'①', ph:'예: 30초 릴스 컷 1의 첫 장면', tip:'어디에 쓸지 알려 주세요'},
+      {id:'ratio', label:'비율', type:'select', opts:['9:16 세로','1:1 정사각','16:9 가로','4:5 세로']},
+      {id:'char', label:'캐릭터 설정', tool:'③', type:'area', ph:'생김새·옷·색을 자세히 — 컷마다 똑같이 복사', tip:'고정해 두면 컷마다 주인공이 같아요'},
+      {id:'scene', label:'장면', type:'area', ph:'어디서, 무엇을 하고 있나'},
+      {id:'subject', label:'주제', ph:'한 줄로: 이 그림이 말하려는 것'},
+      {id:'detail', label:'디테일', tool:'⑤', ph:'조명·소품·표정·시간대', tip:'디테일이 결과를 구체적으로 만들어요'},
+      {id:'style', label:'스타일', tool:'②', ph:'예: 3D 애니메이션, 따뜻한 색감', tip:'스타일 예시를 주면 톤이 일정해요'},
+      {id:'text', label:'글자', ph:'화면에 넣을 글자 (따옴표는 자동)'},
+    ],
+    checks: [
+      {id:'noPerson', label:'실존 인물 없이', text:'실존 인물'},
+      {id:'noLogo', label:'로고 없이', text:'브랜드 로고'},
+      {id:'noText', label:'글자 없이', text:'화면 속 글자'},
+      {id:'noMark', label:'워터마크 없이', text:'워터마크'},
+    ],
+    build(d, use) {
+      const s = ['이미지를 만들어 줘.'];
+      const add = (k, v) => v && s.push('- ' + k + ': ' + v);
+      add('용도', d.use); add('비율', d.ratio); add('캐릭터', d.char); add('장면', d.scene);
+      add('주제', d.subject); add('디테일', d.detail); add('스타일', d.style);
+      if (d.text) { s.push('- 화면 글자: "' + d.text.replace(/["“”']/g, '') + '" (이 글자만, 철자 그대로)'); use('⑤'); }
+      const avoid = this.checks.filter(c => d[c.id]).map(c => c.id === 'noText' && d.text ? '지정한 것 외의 글자' : c.text);
+      if (avoid.length) { s.push('- 피할 것: ' + avoid.join(', ') + ' 없이'); use('⑤'); }
+      if (s.length > 2) use('④');
+      return s.length > 1 ? s.join('\n') : '';
+    },
+    example: {
+      use:'30초 릴스 「로로의 금요일 밤」 컷 1 첫 장면', ratio:'9:16 세로',
+      char:'로로: 손바닥만 한 주황색 아기 너구리 마스코트, 노란 비옷, 동그란 큰 눈, 통통한 꼬리',
+      scene:'비 오는 금요일 밤, 작은 원룸 창가 책상 앞에서 컵라면을 들고 설레는 표정',
+      subject:'혼자여도 즐거운 금요일 밤', detail:'창밖 빗방울, 스탠드의 노란 조명, 김이 살짝 나는 컵라면',
+      style:'따뜻한 색감의 3D 애니메이션, 부드러운 조명', text:'',
+      noPerson:true, noLogo:true, noText:true, noMark:true,
+    },
+  },
+
+  video: {
+    label: '🎬 영상 컷',
+    fields: [
+      {id:'common', label:'[공통 설정]', tool:'⑤', type:'area', ph:'인물·옷·색감·장소·스타일 — 모든 컷에 똑같이 (비우기 해도 남아요)', tip:'컷마다 같은 문장을 넣어야 이어져요'},
+      {id:'cut', label:'컷 번호', type:'select', opts:['1','2','3','4']},
+      {id:'len', label:'길이', type:'select', opts:['8초','6초','4초']},
+      {id:'img', label:'시작 이미지', type:'select', opts:['첨부함','첨부 안 함']},
+      {id:'keep', label:'그대로 둘 것', tool:'⑤', type:'area', ph:'한 줄에 하나씩: 색·옷·배경 등', tip:'바뀌면 안 되는 것을 적어요'},
+      {id:'from', label:'동작 — 처음', tool:'⑦', ph:'예: 컵라면 뚜껑을 잡는다', tip:'처음 → 끝 순서로 동작은 하나만'},
+      {id:'to', label:'동작 — 끝', ph:'예: 김이 확 올라와 깜짝 놀란다'},
+      {id:'camera', label:'카메라', ph:'예: 천천히 줌인, 고정'},
+      {id:'sound', label:'소리', ph:'예: 빗소리, 뚜껑 여는 소리 (대사 없음)'},
+      {id:'avoid', label:'피할 것', tool:'⑤', type:'area', ph:'한 줄에 하나씩', tip:'글자·로고 같은 사고를 막아요'},
+    ],
+    keep: ['common'],
+    build(d, use) {
+      const s = ['# 컷 ' + (d.cut || '1') + ' · ' + (d.len || '8초') + ' · 세로 9:16'];
+      if (d.common) s.push('## 공통 설정 (모든 컷 동일)\n' + d.common);
+      if ((d.img || '첨부함') === '첨부함') s.push('## 시작 장면\n첨부한 이미지를 첫 프레임으로 그대로 사용해 줘.');
+      if (d.keep) s.push('## 그대로 둘 것\n' + lines(d.keep).map(l => '- ' + l).join('\n'));
+      if (d.from || d.to) s.push('## 동작 (하나만, 천천히)\n처음: ' + (d.from || '—') + '\n끝: ' + (d.to || '—'));
+      if (d.camera) s.push('## 카메라\n' + d.camera);
+      if (d.sound) s.push('## 소리\n' + d.sound);
+      const avoid = ['화면 속 글자·자막', '브랜드 로고', ...lines(d.avoid)];
+      s.push('## 피할 것\n' + avoid.map(l => '- ' + l).join('\n'));
+      use('④');
+      return s.length > 2 || d.common ? s.join('\n\n') : '';
+    },
+    example: {
+      common:'로로: 손바닥만 한 주황색 아기 너구리, 노란 비옷, 동그란 큰 눈. 비 오는 밤 작은 원룸, 스탠드의 노란 조명. 따뜻한 색감의 3D 애니메이션.',
+      cut:'1', len:'8초', img:'첨부함',
+      keep:'로로의 주황색 털과 노란 비옷\n창밖의 비와 방 배치',
+      from:'로로가 컵라면 뚜껑을 조심스럽게 연다', to:'김이 확 올라와 깜짝 놀라 꼬리가 부풀어 오른다',
+      camera:'로로 얼굴 쪽으로 천천히 줌인', sound:'빗소리, 뚜껑 여는 소리, 작은 놀람 소리 (대사 없음)',
+      avoid:'손가락이나 팔이 늘어나는 것\n로로의 색이 바뀌는 것',
+    },
+  },
+
+  reels: {
+    label: '🎞 릴스 스토리보드',
+    fields: [
+      {id:'topic', label:'주제', tool:'①', ph:'예: 버그와의 30초 결투', tip:'주제가 있어야 시작해요'},
+      {id:'len', label:'길이', type:'select', opts:['30초','15초']},
+      {id:'mood', label:'분위기', tool:'⑤', ph:'예: RPG 게임처럼 긴장감 → 통쾌', tip:'분위기가 컷의 색과 속도를 정해요'},
+      {id:'viewer', label:'보는 사람', tool:'⑥', ph:'예: 개발 공부하는 부트캠프 동기들', tip:'누가 보는지 알면 훅이 달라져요'},
+      {id:'hero', label:'주인공', tool:'③', ph:'얼굴 대신 손·뒷모습·가상 캐릭터', tip:'주인공을 정해야 컷마다 같아요'},
+    ],
+    checks: [],
+    build(d, use) {
+      if (!d.topic && !d.mood && !d.viewer && !d.hero) return '';
+      const len = d.len || '30초', cuts = len === '15초' ? 2 : 4;
+      use('③'); use('④'); use('⑤'); use('⑦');
+      const info = [['주제', d.topic], ['분위기', d.mood], ['보는 사람', d.viewer], ['주인공', d.hero]]
+        .filter(x => x[1]).map(x => '- ' + x[0] + ': ' + x[1]).join('\n');
+      return [
+        '# 역할\n너는 조회수 높은 숏폼을 많이 만든 숏폼 영상 감독이야.',
+        '# 맥락\nAI 이미지·영상 도구로 ' + len + ' 세로(9:16) 릴스 한 편을 혼자 만들려고 해. 영상은 컷당 8초까지 만들 수 있어.\n' + info,
+        '# 할 일\n1. 한 줄 콘셉트와 반전 포인트\n2. 컷 ' + cuts + '개 스토리보드 표: | 컷 | 초 | 장면 | 동작 | 카메라 | 소리 | 편집 자막 |\n3. [공통 설정]: 주인공 생김새·옷·색감·장소·스타일을 한 문단으로\n4. 컷별 이미지 프롬프트와 영상 프롬프트 (모든 프롬프트에 [공통 설정]을 그대로 포함)',
+        '# 꼭 지킬 것\n> 첫 3초 안에 눈길을 끄는 장면\n> 컷마다 동작은 하나만\n> 실존 인물·유명 캐릭터·브랜드 로고·화면 속 글자 없이 (자막은 편집에서 넣음)',
+        '# 출력 형식\n마크다운 제목과 표로. 마지막에 가장 공들일 컷 1개를 추천해 줘.',
+      ].join('\n\n');
+    },
+    example: {
+      topic:'버그와의 30초 결투', len:'30초', mood:'RPG 보스전처럼 긴장감 → 마지막에 통쾌',
+      viewer:'개발 공부하는 부트캠프 동기들', hero:'후드티 입은 개발자 (얼굴 대신 손과 뒷모습) vs 빨간 에러 몬스터',
+    },
+  },
+
+  mail: {
+    label: '📧 업무 메일',
+    fields: [
+      {id:'kind', label:'메일 종류', type:'select', opts:['답장','먼저 보내는 문의','요청','안내·공지','사과','보고']},
+      {id:'to', label:'받는 사람', tool:'⑥', ph:'이름·직급·회사 + 나와의 관계 (예: 고객사 김민지 과장, 첫 거래)', tip:'관계에 따라 격식과 말투가 달라져요'},
+      {id:'me', label:'보내는 나', tool:'③', ph:'이름·소속·역할 (예: 개발팀 이준호, API 담당)', tip:'내 역할이 있어야 책임 범위가 정확해져요'},
+      {id:'when', label:'보내는 시점', ph:'예: 문의 받은 다음 날 오전 / 장애 해결 직후', tip:'늦은 답장이면 사과 한 줄이 필요해요'},
+      {id:'received', label:'받은 메일·문의 내역', tool:'①', type:'area', ph:"상대가 보낸 메일이나 지금까지의 대화를 붙여 넣으면 ''' 상자로 감싸져요", tip:'원문이 있어야 빠짐없이 답해요'},
+      {id:'point', label:'전할 핵심 내용', type:'area', ph:'한 줄에 하나씩: 확인한 것, 결정된 것, 줄 수 있는 답'},
+      {id:'deadline', label:'기한', tool:'⑤', ph:'예: 회신 10/30(목)까지, 처리 완료 11/3(월)', tip:'날짜·요일을 적으면 오해가 줄어요'},
+      {id:'ask', label:'상대에게 바라는 행동', tool:'⑤', ph:'예: 오류 화면 캡처 회신 / 일정 승인', tip:'메일을 읽고 상대가 할 일을 분명하게'},
+      {id:'tone', label:'격식', type:'select', opts:['정중하게 (기본)','매우 격식 있게','부드럽고 친근하게','간결하게']},
+      {id:'must', label:'꼭 넣을 것 · 피할 것', tool:'⑤', type:'area', ph:'한 줄에 하나씩 (예: 확정 안 된 날짜는 약속하지 않기)', tip:'실수하면 안 되는 조건을 적어요'},
+      {id:'attach', label:'첨부', ph:'예: 오류 로그.txt, 일정표.xlsx'},
+      {id:'length', label:'분량', tool:'⑤', ph:'예: 본문 10줄 이내, 모바일에서 한 화면'},
+    ],
+    checks: [
+      {id:'three', label:'답장 3안', tool:'⑥', text:'톤이 다른 3안(정중형 · 간결형 · 적극 제안형)을 주고, 상황에 맞는 1안을 추천해 줘.'},
+      {id:'subject', label:'제목 추천', tool:'⑥', text:'메일 제목을 3개 추천해 줘 (핵심과 기한이 제목에서 보이게).'},
+      {id:'askFirst', label:'빠진 정보 먼저 질문', tool:'⑦', text:'답장을 쓰기 전에 꼭 필요한데 빠진 정보가 있으면 먼저 질문해 줘.'},
+      {id:'reader', label:'받는 사람 입장 점검', tool:'⑥', text:'다 쓴 뒤 받는 사람 입장에서 읽고, 오해하거나 불쾌할 수 있는 표현을 고쳐 줘.'},
+      {id:'check', label:'빠짐 점검', tool:'⑦', text:'보내기 전에 문의 내역의 질문에 모두 답했는지, 날짜·숫자가 맞는지 체크리스트로 점검해 줘.'},
+    ],
+    build(d, use) {
+      const filled = this.fields.some(f => f.id !== 'kind' && f.id !== 'tone' && d[f.id]);
+      if (!filled) return '';
+      const kind = d.kind || '답장', s = [];
+      s.push('# 역할\n10년차 비즈니스 커뮤니케이션 전문가이자, 메일 하나로 일을 깔끔하게 끝내는 팀장');
+      use('③');
+      const info = [['메일 종류', kind], ['받는 사람', d.to], ['보내는 나', d.me], ['보내는 시점', d.when],
+        ['기한', d.deadline], ['상대에게 바라는 행동', d.ask], ['첨부', d.attach]]
+        .filter(x => x[1]).map(x => '- ' + x[0] + ': ' + x[1]);
+      s.push('# 상황\n' + info.join('\n'));
+      if (d.received) s.push("# 받은 메일·문의 내역\n'''\n" + d.received + "\n'''");
+      if (d.point) s.push('# 전할 핵심 내용\n' + lines(d.point).map(l => '- ' + l).join('\n'));
+      s.push('# 할 일\n위 상황에 알맞은 업무 메일(' + kind + ')을 써 줘.' +
+        (d.received ? ' 문의 내역의 질문에 하나도 빠짐없이 답해 줘.' : ''));
+      const rules = [
+        '격식: ' + (d.tone || '정중하게 (기본)'),
+        ...lines(d.must),
+        d.deadline && '기한은 날짜와 요일을 함께, 본문에서 눈에 띄게',
+        d.ask && '상대가 해 줄 일은 마지막 문단에 한 번 더 분명하게',
+        '확인되지 않은 사실이나 날짜는 약속하지 말고 [확인 필요]로 표시',
+        '고객에게 안내하는 임시 방법·해결책은 부작용(중복 결제, 데이터 손실 등)이 없는지 먼저 점검하고, 안전이 확인되지 않았으면 본문에 주의 문구를 함께 쓰고 "보내기 전 확인할 것"에도 적기',
+      ].filter(Boolean);
+      s.push('# 꼭 지킬 것\n' + rules.map(l => '> ' + l).join('\n'));
+      if (d.length) s.push('# 분량\n' + d.length);
+      s.push('# 출력 형식\n1) 제목\n2) 본문 (인사 → 핵심 → 요청·기한 → 맺음말)\n3) 서명\n4) 보내기 전 확인할 것 (있을 때만)');
+      const how = this.checks.filter(c => d[c.id]).map(c => (use(c.tool), '- ' + c.text));
+      if (how.length) s.push('# 진행 방식\n' + how.join('\n'));
+      use('①'); use('④');
+      return s.join('\n\n');
+    },
+    example: {
+      kind:'답장', to:'고객사 (주)한빛커머스 김민지 과장, 이번 달 계약한 신규 고객',
+      me:'개발팀 이준호 매니저, 결제 API 연동 담당', when:'문의 받은 다음 날 오전 (하루 늦은 답장)',
+      received:'안녕하세요, 한빛커머스 김민지입니다.\n어제부터 결제 API 호출 시 가끔 500 에러가 납니다.\n1) 원인이 무엇인지\n2) 언제쯤 해결되는지\n3) 그동안 쓸 수 있는 임시 방법이 있는지 알려 주세요.\n주말 프로모션이 있어 급합니다.',
+      point:'원인: 어제 배포한 서버 설정 문제로 확인됨\n오늘 오후 2시 수정 배포 예정\n임시 방법: 실패 시 3초 뒤 1회 재시도하면 대부분 성공',
+      deadline:'수정 배포 10/28(수) 오후 2시, 프로모션 전 최종 점검 10/30(금)까지', ask:'배포 후 테스트 모드로 결제 1건 진행하고, 10/29(목) 오전까지 결과 회신',
+      tone:'정중하게 (기본)', must:'답장이 늦은 것에 대한 사과 한 줄\n남 탓하는 표현 쓰지 않기\n전문 용어는 짧게 풀어서',
+      attach:'에러 발생 시간대 로그 요약.pdf', length:'본문 15줄 이내',
+      subject:true, reader:true, check:true,
+    },
+  },
+};
+
+// ── 카드에 쓰는 정보 (제목 · 분류 · 설명 · 그림 색)
+const META = {
+  text:  {title:'글', cat:'글쓰기 · 도구 ①~⑦', desc:'역할·맥락·출력 형식을 칸으로 채워 어떤 글이든 시키는 기본 생성기', icon:'pen', c1:'#fde68a', c2:'#f59e0b', ink:'#92400e'},
+  image: {title:'이미지', cat:'이미지 생성 · 릴스 첫 장면', desc:'캐릭터·장면·스타일을 고정해 컷마다 같은 주인공을 만드는 이미지 프롬프트', icon:'image', c1:'#a7f3d0', c2:'#10b981', ink:'#065f46'},
+  video: {title:'영상 컷', cat:'영상 생성 · Flow · Veo', desc:'시작 이미지를 움직이는 8초 컷 프롬프트. [공통 설정]은 브라우저에 기억돼요', icon:'clap', c1:'#bfdbfe', c2:'#3b82f6', ink:'#1e40af'},
+  reels: {title:'릴스 스토리보드', cat:'숏폼 기획 · 15/30초', desc:'주제만 넣으면 숏폼 감독이 컷 표와 컷별 프롬프트까지 짜 주는 기획 프롬프트', icon:'film', c1:'#ddd6fe', c2:'#8b5cf6', ink:'#5b21b6'},
+  mail:  {title:'업무 메일', cat:'업무 커뮤니케이션 · 답장', desc:'문의 내역·기한·받는 사람을 넣으면 빠짐없이 답하는 업무 메일 프롬프트', icon:'mail', c1:'#fecdd3', c2:'#f43f5e', ink:'#9f1239'},
+};
+
+// lucide 아이콘 (외부 라이브러리 대신 경로만 옮겨 옴)
+const ICONS = {
+  pen:'<path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/>',
+  image:'<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+  clap:'<path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',
+  film:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/>',
+  mail:'<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  bookmark:'<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
+  back:'<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  dice:'<rect width="12" height="12" x="2" y="10" rx="2" ry="2"/><path d="m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 6"/><path d="M6 18h.01"/><path d="M10 14h.01"/><path d="M15 6h.01"/><path d="M18 9h.01"/>',
+  copy:'<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+  eraser:'<path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/>',
+};
+const icon = (name, fill) => `<svg viewBox="0 0 24 24" width="16" height="16" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+
+// 카드 썸네일: 그라데이션 위에 종이 한 장 + 아이콘 (이미지 파일 없이 오프라인에서도 보이게)
+function art(k) {
+  const m = META[k];
+  return `<span class="art" style="background:linear-gradient(135deg,${m.c1},${m.c2})"><svg viewBox="0 0 200 200" aria-hidden="true">
+    <rect x="40" y="46" width="120" height="108" rx="12" fill="#fff" fill-opacity=".92"/>
+    <g transform="translate(56 62) scale(1.5)" fill="none" stroke="${m.ink}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[m.icon]}</g>
+    <rect x="56" y="112" width="88" height="8" rx="4" fill="${m.ink}" fill-opacity=".3"/>
+    <rect x="56" y="128" width="60" height="8" rx="4" fill="${m.ink}" fill-opacity=".18"/></svg></span>`;
+}
+
+// ── 상태 저장 (localStorage가 막혀도 화면은 동작)
+const KEY = 'my-prompt-generator';
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+let cur = null;
+const data = () => (state[cur] = state[cur] || {});
+const favs = () => (state._fav = state._fav || []);
+const inProgress = k => Object.values(state[k] || {}).some(v => v === true || (typeof v === 'string' && v.trim()));
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function favBtn(k, cls) {
+  const on = favs().includes(k);
+  return `<button type="button" class="btn ${cls}" data-fav="${k}" aria-pressed="${on}" aria-label="${META[k].title} 즐겨찾기" title="즐겨찾기">${icon('bookmark', on)}</button>`;
+}
+
+function renderHome() {
+  document.title = '나만의 프롬프트 생성기';
+  $('app').innerHTML = `<div class="container">
+    <header class="page-head"><h1>나만의 프롬프트 생성기</h1>
+      <p>만들 프롬프트를 골라 주세요. 칸만 채우면 프롬프트가 완성되고, 입력한 내용은 이 브라우저에만 저장돼요.</p></header>
+    <div class="grid">${Object.keys(TABS).map(k => `<div class="card">
+      <a href="#/${k}" aria-label="${META[k].title}">
+        <div class="thumb">${art(k)}</div>
+        <div class="card-body"><h3>${META[k].title}</h3>
+          <p>${META[k].cat}${inProgress(k) ? ' · <span class="dot">작성 중</span>' : ''}</p></div>
+      </a>${favBtn(k, 'btn-secondary save')}</div>`).join('')}</div></div>`;
+}
+
+function renderDetail() {
+  const m = META[cur];
+  document.title = m.title + ' · 나만의 프롬프트 생성기';
+  $('app').innerHTML = `<div class="container">
+    <a class="btn btn-ghost back" href="#/">${icon('back')} 전체 생성기</a>
+    <header class="detail-head">
+      <div class="detail-thumb">${art(cur)}</div>
+      <div class="detail-title"><p class="muted">${m.cat}</p><h1>${m.title}</h1><p class="muted">${m.desc}</p></div>
+      ${favBtn(cur, 'btn-outline btn-icon')}
+    </header>
+    <div class="detail-grid">
+      <section class="panel">
+        <div class="panel-head"><h2>입력</h2><button type="button" class="btn btn-secondary" data-act="example">${icon('dice')} 예시 채우기</button></div>
+        <form id="form" onsubmit="return false"></form>
+      </section>
+      <section class="panel out">
+        <div class="panel-head"><h2>완성된 프롬프트</h2></div>
+        <div id="badges"></div>
+        <pre id="out"></pre>
+        <div class="btns">
+          <button type="button" class="btn btn-default" data-act="copy">${icon('copy')} <span>복사</span></button>
+          <button type="button" class="btn btn-outline" data-act="download">${icon('download')} 저장</button>
+          <button type="button" class="btn btn-ghost" data-act="clear">${icon('eraser')} 비우기</button>
+        </div>
+        <ul id="tips"></ul>
+      </section>
+    </div></div>`;
+  renderForm(); renderOut();
+}
+
+function renderForm() {
+  const t = TABS[cur], d = data();
+  let h = t.fields.map(f => {
+    const v = esc(d[f.id] ?? '');
+    const lab = `<label class="label" for="f-${f.id}">${f.label}${f.tool ? `<span class="t">${f.tool}</span>` : ''}</label>`;
+    if (f.type === 'select') return lab + `<select class="input" id="f-${f.id}" data-id="${f.id}">${f.opts.map(o => `<option${o === d[f.id] ? ' selected' : ''}>${o}</option>`).join('')}</select>`;
+    if (f.type === 'area') return lab + `<textarea class="input" id="f-${f.id}" data-id="${f.id}" placeholder="${esc(f.ph || '')}">${v}</textarea>`;
+    return lab + `<input class="input" type="text" id="f-${f.id}" data-id="${f.id}" value="${v}" placeholder="${esc(f.ph || '')}">`;
+  }).join('');
+  if (t.checks && t.checks.length) {
+    h += `<span class="label">${cur === 'image' ? '제약' : '진행 방식'}</span><div class="checks">` +
+      t.checks.map(c => `<label><input type="checkbox" data-id="${c.id}"${d[c.id] ? ' checked' : ''}>${c.label}${c.tool ? ` <span class="muted">${c.tool}</span>` : ''}</label>`).join('') + '</div>';
+  }
+  $('form').innerHTML = h;
+}
+
+function renderOut() {
+  const t = TABS[cur], d = data(), used = new Set();
+  t.fields.forEach(f => { if (f.tool && d[f.id]) used.add(f.tool); });
+  const text = t.build(d, k => used.add(k));
+  $('out').textContent = text || '왼쪽 칸을 채우거나 예시 채우기를 눌러 보세요.';
+  $('badges').innerHTML = Object.entries(TOOLS).map(([k, n]) =>
+    `<span class="badge${used.has(k) ? ' on' : ''}">${k} ${n}</span>`).join('');
+  const tips = t.fields.filter(f => f.tip && !d[f.id]).slice(0, 3);
+  $('tips').innerHTML = tips.map(f => `<li>이걸 넣으면 좋아요: <b>${f.label} ${f.tool || ''}</b> — ${f.tip}</li>`).join('');
+}
+
+// ── 화면 이동: #/text 처럼 주소로 세부 페이지를 열어서 뒤로 가기도 동작
+function show(k) {
+  cur = TABS[k] ? k : null;
+  cur ? renderDetail() : renderHome();
+  window.scrollTo(0, 0);
+}
+const route = () => show(location.hash.replace(/^#\/?/, ''));
+window.addEventListener('hashchange', route);
+
+// 주소 바꾸기가 막힌 환경(미리보기 등)에서도 화면은 넘어가게
+$('app').addEventListener('click', e => {
+  const a = e.target.closest('a[href^="#/"]');
+  if (!a || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  e.preventDefault();
+  const k = a.getAttribute('href').slice(2);
+  try { history.pushState(null, '', '#/' + k); } catch (err) {}
+  show(k);
+});
+window.addEventListener('popstate', route);
+
+$('app').addEventListener('input', e => {
+  const id = e.target.dataset.id;
+  if (!id || !cur) return;
+  data()[id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+  save(); renderOut();
+});
+
+$('app').addEventListener('click', async e => {
+  const fav = e.target.closest('[data-fav]');
+  if (fav) {
+    const k = fav.dataset.fav, list = favs(), i = list.indexOf(k);
+    i < 0 ? list.push(k) : list.splice(i, 1);
+    save();
+    fav.setAttribute('aria-pressed', i < 0);
+    fav.innerHTML = icon('bookmark', i < 0);
+    return;
+  }
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (!act) return;
+  if (act === 'example') { state[cur] = {...TABS[cur].example}; save(); renderForm(); renderOut(); }
+  if (act === 'clear') {
+    const keep = {};
+    (TABS[cur].keep || []).forEach(k => { if (data()[k]) keep[k] = data()[k]; });
+    state[cur] = keep; save(); renderForm(); renderOut();
+  }
+  if (act === 'copy') {
+    const text = $('out').textContent, label = e.target.closest('button').querySelector('span');
+    try { await navigator.clipboard.writeText(text); }
+    catch (err) {
+      const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    label.textContent = '복사됨 ✓'; setTimeout(() => label.textContent = '복사', 1200);
+  }
+  if (act === 'download') {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([$('out').textContent], {type:'text/plain;charset=utf-8'}));
+    a.download = 'prompt-' + cur + '.txt'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+});
+
+route();
+</script>
+</body>
+</html>
